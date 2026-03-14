@@ -11,7 +11,7 @@ const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
-    secure: false, // Use STARTTLS instead of explicit SSL
+    secure: false, // Use STARTTLS
     pool: true,
     maxConnections: 3,
     maxMessages: 100,
@@ -19,10 +19,14 @@ const transporter = nodemailer.createTransport({
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
     },
-    // CRITICAL FIX: Force IPv4. Render's Free Tier has broken IPv6 routes 
-    // which causes ENETUNREACH when talking to Google APIs.
+    // CRITICAL FIXES FOR RENDER/CLOUD ENVIRONMENTS:
+    family: 4,           // Force IPv4 to avoid ENETUNREACH on IPv6
+    connectionTimeout: 10000, 
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
     tls: {
-        rejectUnauthorized: false
+        rejectUnauthorized: false, // Helps with some cloud proxy certificates
+        minVersion: 'TLSv1.2'
     }
 });
 
