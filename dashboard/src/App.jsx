@@ -111,8 +111,19 @@ function App() {
       }
       
       const result = await response.json();
+      
+      if (result.status === 'completed' && result.result) {
+        setData(result.result);
+        setLoading(false);
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 5000);
+        return;
+      }
+
       setCurrentJob(result);
-      startPolling(result.jobId);
+      if (result.jobId) {
+        startPolling(result.jobId);
+      }
       
     } catch (err) {
       console.error(err);

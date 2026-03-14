@@ -14,8 +14,9 @@ const mongoose = require('mongoose');
 const Pulse = require('./services/PulseModel');
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('Connected to MongoDB Atlas'))
+// MongoDB Connection - Force use of pulse_db to avoid configuration errors
+mongoose.connect(process.env.MONGODB_URI, { dbName: 'pulse_db' })
+    .then(() => console.log('Connected to MongoDB Atlas (pulse_db)'))
     .catch(err => console.error('MongoDB connection error:', err));
 
 // Handle global errors to prevent silent crashes
@@ -184,22 +185,41 @@ const handleEmailPhase = async (jobId, pulseData, targetEmail) => {
 app.post('/api/generate-pulse', async (req, res) => {
     try {
         const { weeks = 8, recipientEmail } = req.body;
+
+        // --- INSTANT CACHE CHECK ---
+        // If data exists, we return it immediately. No polling, no wait.
+        const history = await loadHistoryFromDB();
+        if (history[weeks]) {
+            console.log(`[API] Instant Cache Hit for ${weeks} weeks. Returning immediately.`);
+            const pulseData = history[weeks];
+            
+            // Send email in background if needed
+            const finalRecipient = recipientEmail || process.env.TARGET_EMAIL;
+            if (finalRecipient) {
+                handleEmailPhase(null, pulseData, finalRecipient).catch(console.error);
+            }
+
+            return res.json({ 
+                status: "completed",
+                result: pulseData,
+                message: "Pulse retrieved from cache"
+            });
+        }
         
-        // Create new job
+        // --- SLOW PATH (FRESH GENERATION) ---
+        // Create new job only if data is MISSING
         const job = jobTracker.createJob('pulse_generation');
         job.metadata.weeks = weeks;
         job.metadata.recipientEmail = recipientEmail;
         
-        // Start processing in background
         runPulseGeneration(job.id, weeks, recipientEmail).catch(err => {
             console.error('Background job failed:', err);
         });
         
         res.json({ 
             jobId: job.id,
-            message: "Pulse generation started",
-            status: "pending",
-            recipientEmail: recipientEmail || "default"
+            message: "Data not in cache. Starting fresh generation...",
+            status: "pending"
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
