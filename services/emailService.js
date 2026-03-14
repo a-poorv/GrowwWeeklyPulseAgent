@@ -1,70 +1,30 @@
 require('dotenv').config();
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
 /**
- * Sends the generated pulse report via email
+ * Sends the generated pulse report via email using Resend API
+ * This replaces the old SMTP logic to avoid networking/timeout issues.
  * @param {Object} pulseData JSON object from LLM containing themes, quotes, actions
- * @param {string} targetEmail Recipient email address (optional, uses default if not provided)
- * @param {Function} onProgress Optional progress callback
- */
-// Create a more robust pooled transporter
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // Use STARTTLS
-    pool: true,
-    maxConnections: 3,
-    maxMessages: 100,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-    },
-    // CRITICAL FIXES FOR RENDER/CLOUD ENVIRONMENTS:
-    family: 4,           // Force IPv4 to avoid ENETUNREACH on IPv6
-    connectionTimeout: 10000, 
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-    tls: {
-        rejectUnauthorized: false, // Helps with some cloud proxy certificates
-        minVersion: 'TLSv1.2'
-    }
-});
-
-// Verify connection on startup to log errors if credentials are bad
-transporter.verify((error, success) => {
-    if (error) {
-        console.error('❌ SMTP Connection Error on Startup:', error.message);
-    } else {
-        console.log('✅ SMTP Server ready to send emails.');
-    }
-});
-
-/**
- * Sends the generated pulse report via email
- * @param {Object} pulseData JSON object from LLM containing themes, quotes, actions
- * @param {string} targetEmail Recipient email address (optional, uses default if not provided)
+ * @param {string} targetEmail Recipient email address
  * @param {Function} onProgress Optional progress callback
  */
 async function sendPulseEmail(pulseData, targetEmail = null, onProgress) {
     const recipientEmail = targetEmail || process.env.TARGET_EMAIL;
+    const apiKey = process.env.RESEND_API_KEY;
 
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        console.error('❌ Missing SMTP_USER or SMTP_PASS environment variables.');
-        onProgress?.({ phase: 'email', status: 'skipped', reason: 'Missing email configuration' });
+    if (!apiKey) {
+        console.error('❌ Missing RESEND_API_KEY environment variable.');
+        onProgress?.({ phase: 'email', status: 'skipped', reason: 'Missing Resend API Key' });
         return;
     }
+
+    const resend = new Resend(apiKey);
     
-    if (!recipientEmail) {
-        console.error('❌ Missing recipient address (TARGET_EMAIL or input).');
-        onProgress?.({ phase: 'email', status: 'skipped', reason: 'Missing recipient' });
-        return;
-    }
-
     try {
-        // Report starting state
+        console.log(`[Resend] Preparing to send pulse to: ${recipientEmail}...`);
         onProgress?.({ phase: 'email', status: 'sending', progress: 10 });
 
-        // Build the clean HTML Email Template based on constraints: Scannable, No PII.
+        // Build the HTML template
         const htmlTemplate = `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
                 <div style="background-color: #00d09c; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
@@ -73,54 +33,44 @@ async function sendPulseEmail(pulseData, targetEmail = null, onProgress) {
                 </div>
                 
                 <div style="background-color: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px; border: 1px solid #eee;">
-                    
                     <h2 style="color: #1a1a1a; font-size: 18px; border-bottom: 2px solid #00d09c; padding-bottom: 8px; margin-top: 0;">📌 Top 3 User Themes</h2>
                     <ul style="padding-left: 20px; margin-bottom: 24px;">
-                        <li style="margin-bottom: 8px;"><strong>${pulseData.themes[0]}</strong></li>
-                        <li style="margin-bottom: 8px;"><strong>${pulseData.themes[1]}</strong></li>
-                        <li style="margin-bottom: 8px;"><strong>${pulseData.themes[2]}</strong></li>
+                        ${pulseData.themes.map(t => `<li style="margin-bottom: 8px;"><strong>${t}</strong></li>`).join('')}
                     </ul>
 
                     <h2 style="color: #1a1a1a; font-size: 18px; border-bottom: 2px solid #00d09c; padding-bottom: 8px;">🗣️ Raw User Voice</h2>
                     <div style="background-color: white; border-left: 4px solid #00d09c; padding: 16px; margin-bottom: 24px; font-style: italic; color: #555;">
-                        <p style="margin-top: 0;">💬 "${pulseData.quotes[0]}"</p>
-                        <p>💬 "${pulseData.quotes[1]}"</p>
-                        <p style="margin-bottom: 0;">💬 "${pulseData.quotes[2]}"</p>
+                         ${pulseData.quotes.map(q => `<p>💬 "${q}"</p>`).join('')}
                     </div>
 
                     <h2 style="color: #1a1a1a; font-size: 18px; border-bottom: 2px solid #00d09c; padding-bottom: 8px;">🚀 Proposed Action Items</h2>
                     <ul style="padding-left: 20px; margin-bottom: 0;">
-                        <li style="margin-bottom: 8px;">${pulseData.actions[0]}</li>
-                        <li style="margin-bottom: 8px;">${pulseData.actions[1]}</li>
-                        <li style="margin-bottom: 0;">${pulseData.actions[2]}</li>
+                         ${pulseData.actions.map(a => `<li style="margin-bottom: 8px;">${a}</li>`).join('')}
                     </ul>
                 </div>
                 <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #888;">
                     <p>Automated by the Weekly Pulse Reporter • No PII explicitly present.</p>
-                    <p>Generated for: ${recipientEmail}</p>
                 </div>
             </div>
         `;
 
-        // Mail Options
-        const mailOptions = {
-            from: `"Pulse Reporter" <${process.env.SMTP_USER}>`,
+        const { data, error } = await resend.emails.send({
+            from: 'Weekly Pulse <onboarding@resend.dev>',
             to: recipientEmail,
             subject: `📈 Groww Weekly Pulse (Week ${pulseData.weeks || 'Recent'}) - ${new Date().toDateString()}`,
-            html: htmlTemplate
-        };
+            html: htmlTemplate,
+        });
 
-        const info = await transporter.sendMail(mailOptions);
-        onProgress?.({ phase: 'email', status: 'completed', progress: 100, messageId: info.messageId });
-        return info;
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        console.log(`✅ Email sent successfully via Resend! ID: ${data.id}`);
+        onProgress?.({ phase: 'email', status: 'completed', progress: 100, messageId: data.id });
+        return data;
 
     } catch (error) {
-        console.error(`❌ Email dispatch failed to ${recipientEmail}:`, error.message);
-        if (error.code === 'EAUTH') {
-            console.error('👉 Hint: This is an Authentication error. Check your SMTP_PASS (App Password) inside Render.');
-        } else if (error.code === 'ETIMEDOUT') {
-            console.error('👉 Hint: Connection timeout. Render might be blocking default ports or Gmail is blocking the IP. Explicit SSL to port 465 should fix this.');
-        }
+        console.error(`❌ Resend API Error:`, error.message);
         onProgress?.({ phase: 'email', status: 'error', error: error.message });
         throw error;
     }
