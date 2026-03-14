@@ -193,10 +193,11 @@ app.post('/api/generate-pulse', async (req, res) => {
             console.log(`[API] Instant Cache Hit for ${weeks} weeks. Returning immediately.`);
             const pulseData = history[weeks];
             
-            // Send email in background if needed
+            // Send email - We AWAIT here so the UI knows if it REALLY worked
             const finalRecipient = recipientEmail || process.env.TARGET_EMAIL;
             if (finalRecipient) {
-                handleEmailPhase(null, pulseData, finalRecipient).catch(console.error);
+                console.log(`[API] Sending email to ${finalRecipient}...`);
+                await handleEmailPhase(null, pulseData, finalRecipient);
             }
 
             return res.json({ 
