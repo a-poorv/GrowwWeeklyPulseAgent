@@ -40,7 +40,8 @@ function App() {
 
   const fetchPrecomputedData = async (weeks) => {
     try {
-      const url = weeks ? `http://127.0.0.1:3000/api/pulse?weeks=${weeks}` : 'http://127.0.0.1:3000/api/pulse';
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
+      const url = weeks ? `${baseUrl}/api/pulse?weeks=${weeks}` : `${baseUrl}/api/pulse`;
       const response = await fetch(url);
       if (response.ok) {
         const newData = await response.json();
@@ -58,7 +59,8 @@ function App() {
 
     pollingInterval.current = setInterval(async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:3000/api/jobs/${jobId}`);
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
+        const response = await fetch(`${baseUrl}/api/jobs/${jobId}`);
         if (response.ok) {
           const job = await response.json();
           setJobStatus(job);
@@ -92,7 +94,8 @@ function App() {
     setJobStatus(null);
 
     try {
-      const response = await fetch('http://127.0.0.1:3000/api/generate-pulse', {
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
+      const response = await fetch(`${baseUrl}/api/generate-pulse`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
