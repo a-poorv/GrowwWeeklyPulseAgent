@@ -10,6 +10,13 @@ const { generatePulseReport } = require('./services/llmAnalyzer');
 const { sendPulseEmail } = require('./services/emailService');
 const { JobTracker } = require('./services/jobTracker');
 const { v4: uuidv4 } = require('uuid');
+const mongoose = require('mongoose');
+const Pulse = require('./services/PulseModel');
+
+// MongoDB Connection
+mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log('Connected to MongoDB Atlas'))
+    .catch(err => console.error('MongoDB connection error:', err));
 
 // Handle global errors to prevent silent crashes
 process.on('uncaughtException', (err) => {
@@ -38,47 +45,39 @@ cron.schedule('0 2 * * *', () => runPulseGeneration(null, 8));
 
 const HISTORY_PATH = path.join(__dirname, 'dashboard', 'src', 'data', 'pulse_history.json');
 
-// Helper to load/save history
-const loadHistory = () => {
-    if (fs.existsSync(HISTORY_PATH)) {
-        try {
-            return JSON.parse(fs.readFileSync(HISTORY_PATH, 'utf8'));
-        } catch (e) {
-            console.error('History file corrupt, resetting.');
-            return {};
-        }
+// Helper to load/save history (Updated for MongoDB)
+const loadHistoryFromDB = async () => {
+    try {
+        const results = await Pulse.find({});
+        const history = {};
+        results.forEach(r => {
+            history[r.weeks] = r.toObject();
+        });
+        return history;
+    } catch (e) {
+        console.error('Error loading from DB:', e);
+        return {};
     }
-    
-    // SEEDING GAP: If history doesn't exist, try to seed it from current pulse.json
-    const latestPath = path.join(__dirname, 'dashboard', 'src', 'data', 'pulse.json');
-    if (fs.existsSync(latestPath)) {
-        try {
-            const latestData = JSON.parse(fs.readFileSync(latestPath, 'utf8'));
-            const history = { [latestData.weeks || 8]: latestData };
-            fs.writeFileSync(HISTORY_PATH, JSON.stringify(history, null, 2));
-            return history;
-        } catch (e) {
-            return {};
-        }
-    }
-    return {};
 };
 
-const saveHistory = (history) => {
-    fs.writeFileSync(HISTORY_PATH, JSON.stringify(history, null, 2));
-    // Also update the "latest" for the main dashboard view
-    const latestPath = path.join(__dirname, 'dashboard', 'src', 'data', 'pulse.json');
-    const latest = Object.values(history).sort((a,b) => new Date(b.generatedAt) - new Date(a.generatedAt))[0];
-    if (latest) {
-        fs.writeFileSync(latestPath, JSON.stringify(latest, null, 2));
+const saveOneToDB = async (pulseData) => {
+    try {
+        await Pulse.findOneAndUpdate(
+            { weeks: pulseData.weeks },
+            pulseData,
+            { upsert: true, new: true }
+        );
+        console.log(`[DB] Saved pulse for week ${pulseData.weeks}`);
+    } catch (e) {
+        console.error('Error saving to DB:', e);
     }
 };
 
 async function runPulseGeneration(jobId = null, weeks = 8, recipientEmail = null, forceNew = false) {
     const job = jobId ? jobTracker.getJob(jobId) : null;
-    const history = loadHistory();
+    const history = await loadHistoryFromDB();
     
-    // GAP FIXED: Check if we already have a recent report for this week count
+    // Check if we already have a recent report for this week count
     if (!forceNew && history[weeks]) {
         console.log(`[System] Found existing report for ${weeks} weeks. Using cached data.`);
         const pulseData = history[weeks];
@@ -90,21 +89,16 @@ async function runPulseGeneration(jobId = null, weeks = 8, recipientEmail = null
             jobTracker.updateStage(jobId, 'generating_report', 100, true);
         }
 
-        // Resolve final recipient
         const finalRecipient = recipientEmail || process.env.TARGET_EMAIL;
+        if (finalRecipient) {
+            // Restore AWAIT for reliability (so user sees success/fail)
+            await handleEmailPhase(jobId, pulseData, finalRecipient);
+        }
 
         if (job) {
-            // Instantly mark the remaining stages as complete for the UI
-            jobTracker.updateStage(jobId, 'sending_email', 100, true);
             jobTracker.updateStage(jobId, 'completed', 100, true);
             jobTracker.setJobResult(jobId, pulseData);
         }
-
-        // Fire-and-forget the email (don't pass jobId so it doesn't mess with the local job tracker)
-        if (finalRecipient) {
-            handleEmailPhase(null, pulseData, finalRecipient).catch(console.error);
-        }
-
         return pulseData;
     }
 
@@ -112,14 +106,12 @@ async function runPulseGeneration(jobId = null, weeks = 8, recipientEmail = null
     try {
         if (job) jobTracker.updateStage(jobId, 'initializing');
         
-        // --- FETCHING ---
         const reviews = await fetchAllReviews({ 
             onProgress: (p) => handleFetchProgress(jobId, p), 
             weeks 
         });
         if (reviews.length === 0) throw new Error("No insightful reviews found.");
 
-        // --- ANALYSIS ---
         if (job) jobTracker.updateStage(jobId, 'analyzing_reviews', 0, false);
         const pulseJsonString = await generatePulseReport(reviews, { 
             onProgress: (p) => handleAnalysisProgress(jobId, p) 
@@ -129,25 +121,19 @@ async function runPulseGeneration(jobId = null, weeks = 8, recipientEmail = null
         pulseData.generatedAt = new Date().toISOString();
         pulseData.weeks = weeks;
         
-        // Save to history
-        history[weeks] = pulseData;
-        saveHistory(history);
+        // Save to MongoDB Persistence
+        await saveOneToDB(pulseData);
 
         if (job) jobTracker.updateStage(jobId, 'generating_report', 100, true);
 
-        // --- EMAIL ---
         const finalRecipient = recipientEmail || process.env.TARGET_EMAIL;
-
+        if (finalRecipient) {
+            await handleEmailPhase(jobId, pulseData, finalRecipient);
+        }
+        
         if (job) {
-            // Complete the job tracker immediately so user doesn't wait
-            jobTracker.updateStage(jobId, 'sending_email', 100, true);
             jobTracker.updateStage(jobId, 'completed', 100, true);
             jobTracker.setJobResult(jobId, pulseData);
-        }
-
-        if (finalRecipient) {
-            // Fire-and-forget
-            handleEmailPhase(null, pulseData, finalRecipient).catch(console.error);
         }
         
         return pulseData;
@@ -246,23 +232,22 @@ app.post('/api/trigger-cron-now', async (req, res) => {
 });
 
 // API Endpoint to Instantly GET pre-computed pulse data (0 latency!)
-app.get('/api/pulse', (req, res) => {
+app.get('/api/pulse', async (req, res) => {
     try {
         const { weeks } = req.query;
-        const history = loadHistory();
+        const history = await loadHistoryFromDB();
         
         // If a specific week is requested and exists in history, return it
         if (weeks && history[weeks]) {
             return res.json(history[weeks]);
         }
         
-        // Otherwise fall back to the latest pulse.json
-        const outPath = path.join(__dirname, 'dashboard', 'src', 'data', 'pulse.json');
-        if (fs.existsSync(outPath)) {
-            const dataContent = fs.readFileSync(outPath, 'utf8');
-            res.json(JSON.parse(dataContent));
+        // Otherwise return the most recent one
+        const latest = Object.values(history).sort((a,b) => new Date(b.generatedAt) - new Date(a.generatedAt))[0];
+        if (latest) {
+             return res.json(latest);
         } else {
-            res.status(404).json({ error: "No pre-computed pulse found." });
+            res.status(404).json({ error: "No pre-computed pulse found in DB." });
         }
     } catch (error) {
         res.status(500).json({ error: error.message });
