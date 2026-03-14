@@ -1,0 +1,154 @@
+{
+  "1": {
+    "weeks": 1,
+    "generatedAt": "2026-03-14T11:07:58.753Z",
+    "themes": [
+      "Navigation Issues",
+      "Login Bug",
+      "Slow Charts"
+    ],
+    "quotes": [
+      "The new navigation is a bit confusing, took me 5 minutes to find the watchlist.",
+      "Getting logged out every time I minimize the app. Please fix!",
+      "Charts are taking forever to load on 5G. Needs optimization."
+    ],
+    "actions": [
+      "Redesign bottom navigation for better accessibility",
+      "Fix session persistence bug in Android variant",
+      "Implement chart data pre-fetching"
+    ]
+  },
+  "2": {
+    "weeks": 2,
+    "generatedAt": "2026-03-14T11:07:58.753Z",
+    "themes": [
+      "Option Trading UX",
+      "Dark Mode",
+      "Price Alerts"
+    ],
+    "quotes": [
+      "Option chain needs better sorting options. Hard to find strikes.",
+      "Dark mode finally! But the green text is hard to read against the black.",
+      "Price alerts are delayed by 30 seconds. Critical for scalping."
+    ],
+    "actions": [
+      "Add Strike Price filters to Option Chain",
+      "Adjust Dark Mode color contrast for accessibility",
+      "Upgrade alert microservice for sub-second latency"
+    ]
+  },
+  "3": {
+    "weeks": 3,
+    "generatedAt": "2026-03-14T11:07:58.753Z",
+    "themes": [
+      "Mutual Funds",
+      "Portfolio Insights",
+      "KYC Process"
+    ],
+    "quotes": [
+      "SIP installment failed but money deducted. Support is slow.",
+      "Love the new portfolio diversification chart, very helpful!",
+      "KYC verification is stuck for 3 days. Can't start investing."
+    ],
+    "actions": [
+      "Automate SIP failure refunds",
+      "Add 'Sector-wise' breakdown to Portfolio Insights",
+      "Increase KYC backend processing capacity"
+    ]
+  },
+  "4": {
+    "weeks": 4,
+    "generatedAt": "2026-03-14T11:07:58.753Z",
+    "themes": [
+      "Customer Support",
+      "App Stability",
+      "Educational Content"
+    ],
+    "quotes": [
+      "Chatbot keeps going in circles. Need to talk to a human.",
+      "App crashed twice during market open. Lost money on a trade.",
+      "The basic investing videos are great! More advanced stuff please."
+    ],
+    "actions": [
+      "Implement direct human-agent handover in support chat",
+      "Optimize startup memory footprint to prevent crashes",
+      "Launch 'Advanced Trading' video series"
+    ]
+  },
+  "5": {
+    "weeks": 5,
+    "generatedAt": "2026-03-14T11:07:58.753Z",
+    "themes": [
+      "Biometric Login",
+      "Order Execution",
+      "Wallet UI"
+    ],
+    "quotes": [
+      "FaceID is intermittent. Sometimes works, sometimes doesn't.",
+      "Sell order took 2 seconds to place. Market moved against me.",
+      "Wallet balance doesn't refresh automatically after adding funds."
+    ],
+    "actions": [
+      "Update Biometric SDK for better reliability",
+      "Implement WebSocket-based order confirmations",
+      "Auto-refresh wallet state on successful transaction hook"
+    ]
+  },
+  "6": {
+    "weeks": 6,
+    "generatedAt": "2026-03-14T11:07:58.753Z",
+    "themes": [
+      "Tax Reports",
+      "Referral Program",
+      "IPO Section"
+    ],
+    "quotes": [
+      "Tax P&L report is missing intraday charges breakdown.",
+      "Referral bonus not credited after my friend joined.",
+      "IPO application button was grayed out until 11 AM."
+    ],
+    "actions": [
+      "Add granular charge breakdown to Tax P&L exports",
+      "Fix referral credit validation logic",
+      "Optimize IPO bidding window availability"
+    ]
+  },
+  "7": {
+    "weeks": 7,
+    "generatedAt": "2026-03-14T11:07:58.753Z",
+    "themes": [
+      "Basket Orders",
+      "Stop Loss UI",
+      "News Feed"
+    ],
+    "quotes": [
+      "Basket orders are great, but need a 'Delete All' button.",
+      "Stop loss input is tiny. Hard to type while in a rush.",
+      "News feed is full of generic stuff. Need stock-specific news."
+    ],
+    "actions": [
+      "Add 'Clear Basket' functionality",
+      "Enlarge input fields in Order Window",
+      "Filter News Feed based on user's Watchlist"
+    ]
+  },
+  "8": {
+    "weeks": 8,
+    "generatedAt": "2026-03-14T11:07:58.753Z",
+    "themes": [
+      "User Experience and Interface",
+      "Fees and Charges",
+      "Reliability and Security"
+    ],
+    "quotes": [
+      "This application is very very simplified my trading journey. only just one click to option buying and selling.",
+      "I sold share's of 1700 rs and recieve 1600 in account 100 rs deducted as brokerage.",
+      "very good app I personally recommend for trading thank you Groww team"
+    ],
+    "actions": [
+      "Improve the user interface and simplify the trading process",
+      "Review and adjust fees and charges to be more transparent",
+      "Enhance security measures to prevent unauthorized transactions"
+    ]
+  }
+}
