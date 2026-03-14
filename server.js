@@ -79,15 +79,15 @@ const saveOneToDB = async (pulseData) => {
 async function runPulseGeneration(jobId = null, weeks = 8, recipientEmail = null, forceNew = false) {
     const job = jobId ? jobTracker.getJob(jobId) : null;
     console.log(`[Pulse] Request for ${weeks} weeks. ForceNew: ${forceNew}`);
-    
+
     const history = await loadHistoryFromDB();
     console.log(`[Pulse] Available weeks in DB: ${Object.keys(history).join(', ')}`);
-    
+
     // Check if we already have a recent report for this week count
     if (!forceNew && history[weeks]) {
         console.log(`[Pulse] 🎯 CACHE HIT for ${weeks} weeks.`);
         const pulseData = history[weeks];
-        
+
         if (job) {
             jobTracker.updateStage(jobId, 'initializing', 100, true);
             jobTracker.updateStage(jobId, 'fetching_reviews', 100, true);
@@ -111,22 +111,22 @@ async function runPulseGeneration(jobId = null, weeks = 8, recipientEmail = null
     console.log(`\n[System] Starting fresh Pulse Generation for ${weeks} weeks...`);
     try {
         if (job) jobTracker.updateStage(jobId, 'initializing');
-        
-        const reviews = await fetchAllReviews({ 
-            onProgress: (p) => handleFetchProgress(jobId, p), 
-            weeks 
+
+        const reviews = await fetchAllReviews({
+            onProgress: (p) => handleFetchProgress(jobId, p),
+            weeks
         });
         if (reviews.length === 0) throw new Error("No insightful reviews found.");
 
         if (job) jobTracker.updateStage(jobId, 'analyzing_reviews', 0, false);
-        const pulseJsonString = await generatePulseReport(reviews, { 
-            onProgress: (p) => handleAnalysisProgress(jobId, p) 
+        const pulseJsonString = await generatePulseReport(reviews, {
+            onProgress: (p) => handleAnalysisProgress(jobId, p)
         });
-        
+
         const pulseData = JSON.parse(pulseJsonString);
         pulseData.generatedAt = new Date().toISOString();
         pulseData.weeks = weeks;
-        
+
         // Save to MongoDB Persistence
         await saveOneToDB(pulseData);
 
@@ -136,12 +136,12 @@ async function runPulseGeneration(jobId = null, weeks = 8, recipientEmail = null
         if (finalRecipient) {
             await handleEmailPhase(jobId, pulseData, finalRecipient);
         }
-        
+
         if (job) {
             jobTracker.updateStage(jobId, 'completed', 100, true);
             jobTracker.setJobResult(jobId, pulseData);
         }
-        
+
         return pulseData;
     } catch (error) {
         console.error(`[Error]`, error);
@@ -192,32 +192,39 @@ app.post('/api/generate-pulse', async (req, res) => {
         if (history[weeks]) {
             console.log(`[API] Instant Cache Hit for ${weeks} weeks. Returning immediately.`);
             const pulseData = history[weeks];
-            
+
             // Send email - We AWAIT here so the UI knows if it REALLY worked
             const finalRecipient = recipientEmail || process.env.TARGET_EMAIL;
+            let emailStatusMsg = "Pulse retrieved from cache";
             if (finalRecipient) {
                 console.log(`[API] Sending email to ${finalRecipient}...`);
-                await handleEmailPhase(null, pulseData, finalRecipient);
+                try {
+                    await handleEmailPhase(null, pulseData, finalRecipient);
+                    emailStatusMsg = "Pulse retrieved and email sent successfully!";
+                } catch (emailErr) {
+                    console.error('[API] Email dispatch failed, but data was retrieved.', emailErr.message);
+                    emailStatusMsg = "Data retrieved, but email failed. Check logs.";
+                }
             }
 
-            return res.json({ 
+            return res.json({
                 status: "completed",
                 result: pulseData,
-                message: "Pulse retrieved from cache"
+                message: emailStatusMsg
             });
         }
-        
+
         // --- SLOW PATH (FRESH GENERATION) ---
         // Create new job only if data is MISSING
         const job = jobTracker.createJob('pulse_generation');
         job.metadata.weeks = weeks;
         job.metadata.recipientEmail = recipientEmail;
-        
+
         runPulseGeneration(job.id, weeks, recipientEmail).catch(err => {
             console.error('Background job failed:', err);
         });
-        
-        res.json({ 
+
+        res.json({
             jobId: job.id,
             message: "Data not in cache. Starting fresh generation...",
             status: "pending"
@@ -262,16 +269,16 @@ app.get('/api/pulse', async (req, res) => {
     try {
         const { weeks } = req.query;
         const history = await loadHistoryFromDB();
-        
+
         // If a specific week is requested and exists in history, return it
         if (weeks && history[weeks]) {
             return res.json(history[weeks]);
         }
-        
+
         // Otherwise return the most recent one
-        const latest = Object.values(history).sort((a,b) => new Date(b.generatedAt) - new Date(a.generatedAt))[0];
+        const latest = Object.values(history).sort((a, b) => new Date(b.generatedAt) - new Date(a.generatedAt))[0];
         if (latest) {
-             return res.json(latest);
+            return res.json(latest);
         } else {
             res.status(404).json({ error: "No pre-computed pulse found in DB." });
         }

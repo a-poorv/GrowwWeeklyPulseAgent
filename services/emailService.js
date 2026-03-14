@@ -7,12 +7,26 @@ const nodemailer = require('nodemailer');
  * @param {string} targetEmail Recipient email address (optional, uses default if not provided)
  * @param {Function} onProgress Optional progress callback
  */
-// Create a singleton transporter for robustness and efficiency
+// Create a more robust pooled transporter
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // Use SSL
+    pool: true,   // Use pooled connections
+    maxConnections: 3,
+    maxMessages: 100,
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
+    }
+});
+
+// Verify connection on startup to log errors if credentials are bad
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('❌ SMTP Connection Error on Startup:', error.message);
+    } else {
+        console.log('✅ SMTP Server ready to send emails.');
     }
 });
 
@@ -24,9 +38,16 @@ const transporter = nodemailer.createTransport({
  */
 async function sendPulseEmail(pulseData, targetEmail = null, onProgress) {
     const recipientEmail = targetEmail || process.env.TARGET_EMAIL;
-    
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS || !recipientEmail) {
+
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.error('❌ Missing SMTP_USER or SMTP_PASS environment variables.');
         onProgress?.({ phase: 'email', status: 'skipped', reason: 'Missing email configuration' });
+        return;
+    }
+    
+    if (!recipientEmail) {
+        console.error('❌ Missing recipient address (TARGET_EMAIL or input).');
+        onProgress?.({ phase: 'email', status: 'skipped', reason: 'Missing recipient' });
         return;
     }
 
@@ -83,9 +104,14 @@ async function sendPulseEmail(pulseData, targetEmail = null, onProgress) {
         const info = await transporter.sendMail(mailOptions);
         onProgress?.({ phase: 'email', status: 'completed', progress: 100, messageId: info.messageId });
         return info;
-        
+
     } catch (error) {
-        console.error('❌ Failed to send email.', error.message);
+        console.error(`❌ Email dispatch failed to ${recipientEmail}:`, error.message);
+        if (error.code === 'EAUTH') {
+            console.error('👉 Hint: This is an Authentication error. Check your SMTP_PASS (App Password) inside Render.');
+        } else if (error.code === 'ETIMEDOUT') {
+            console.error('👉 Hint: Connection timeout. Render might be blocking default ports or Gmail is blocking the IP. Explicit SSL to port 465 should fix this.');
+        }
         onProgress?.({ phase: 'email', status: 'error', error: error.message });
         throw error;
     }
