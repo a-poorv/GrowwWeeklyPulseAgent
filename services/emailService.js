@@ -10,9 +10,9 @@ const nodemailer = require('nodemailer');
 // Create a more robust pooled transporter
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // Use SSL
-    pool: true,   // Use pooled connections
+    port: 587,
+    secure: false, // Use STARTTLS instead of explicit SSL (fixes Render timeouts)
+    pool: true,
     maxConnections: 3,
     maxMessages: 100,
     auth: {
