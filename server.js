@@ -262,7 +262,7 @@ app.get('/api/pulse', (req, res) => {
     }
 });
 
-app.listen(PORT, '127.0.0.1', () => {
-    console.log(`Backend Server API running on http://127.0.0.1:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Backend Server API running on port ${PORT}`);
     console.log(`Cron scheduler active. Data will pre-load every night at 2:00 AM.`);
 });
