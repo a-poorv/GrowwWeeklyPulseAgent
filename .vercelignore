@@ -1,0 +1,12 @@
+*
+!dashboard/
+node_modules
+.env
+*.json
+!dashboard/**/*.json
+*.md
+services/
+utils/
+server.js
+index.js
+*.txt
