@@ -1,12 +1,16 @@
-*
-!dashboard/
 node_modules
 .env
-*.json
-!dashboard/**/*.json
-*.md
 services/
 utils/
 server.js
 index.js
 *.txt
+*.md
+# Ignore other root files, but keep dashboard/
+debugScraper.js
+simpleCheck.js
+testPhase1.js
+testPhase2.js
+output.json
+recent_reviews.json
+pulse_report.json
