@@ -93,15 +93,18 @@ async function runPulseGeneration(jobId = null, weeks = 8, recipientEmail = null
         // Resolve final recipient
         const finalRecipient = recipientEmail || process.env.TARGET_EMAIL;
 
-        // If a recipient is available, send the email immediately
-        if (finalRecipient) {
-            await handleEmailPhase(jobId, pulseData, finalRecipient);
-        }
-
         if (job) {
+            // Instantly mark the remaining stages as complete for the UI
+            jobTracker.updateStage(jobId, 'sending_email', 100, true);
             jobTracker.updateStage(jobId, 'completed', 100, true);
             jobTracker.setJobResult(jobId, pulseData);
         }
+
+        // Fire-and-forget the email (don't pass jobId so it doesn't mess with the local job tracker)
+        if (finalRecipient) {
+            handleEmailPhase(null, pulseData, finalRecipient).catch(console.error);
+        }
+
         return pulseData;
     }
 
@@ -134,13 +137,17 @@ async function runPulseGeneration(jobId = null, weeks = 8, recipientEmail = null
 
         // --- EMAIL ---
         const finalRecipient = recipientEmail || process.env.TARGET_EMAIL;
-        if (finalRecipient) {
-            await handleEmailPhase(jobId, pulseData, finalRecipient);
-        }
-        
+
         if (job) {
+            // Complete the job tracker immediately so user doesn't wait
+            jobTracker.updateStage(jobId, 'sending_email', 100, true);
             jobTracker.updateStage(jobId, 'completed', 100, true);
             jobTracker.setJobResult(jobId, pulseData);
+        }
+
+        if (finalRecipient) {
+            // Fire-and-forget
+            handleEmailPhase(null, pulseData, finalRecipient).catch(console.error);
         }
         
         return pulseData;
