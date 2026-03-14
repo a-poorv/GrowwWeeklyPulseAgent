@@ -48,14 +48,16 @@ const HISTORY_PATH = path.join(__dirname, 'dashboard', 'src', 'data', 'pulse_his
 // Helper to load/save history (Updated for MongoDB)
 const loadHistoryFromDB = async () => {
     try {
+        console.log('[DB] Fetching all pulse records...');
         const results = await Pulse.find({});
+        console.log(`[DB] Successfully fetched ${results.length} records.`);
         const history = {};
         results.forEach(r => {
             history[r.weeks] = r.toObject();
         });
         return history;
     } catch (e) {
-        console.error('Error loading from DB:', e);
+        console.error('[DB] Error loading pulse history:', e.message);
         return {};
     }
 };
@@ -75,11 +77,14 @@ const saveOneToDB = async (pulseData) => {
 
 async function runPulseGeneration(jobId = null, weeks = 8, recipientEmail = null, forceNew = false) {
     const job = jobId ? jobTracker.getJob(jobId) : null;
+    console.log(`[Pulse] Request for ${weeks} weeks. ForceNew: ${forceNew}`);
+    
     const history = await loadHistoryFromDB();
+    console.log(`[Pulse] Available weeks in DB: ${Object.keys(history).join(', ')}`);
     
     // Check if we already have a recent report for this week count
     if (!forceNew && history[weeks]) {
-        console.log(`[System] Found existing report for ${weeks} weeks. Using cached data.`);
+        console.log(`[Pulse] 🎯 CACHE HIT for ${weeks} weeks.`);
         const pulseData = history[weeks];
         
         if (job) {
