@@ -14,10 +14,25 @@ const mongoose = require('mongoose');
 const Pulse = require('./services/PulseModel');
 
 // MongoDB Connection
-// MongoDB Connection - Force use of pulse_db to avoid configuration errors
-mongoose.connect(process.env.MONGODB_URI, { dbName: 'pulse_db' })
-    .then(() => console.log('Connected to MongoDB Atlas (pulse_db)'))
-    .catch(err => console.error('MongoDB connection error:', err));
+const MONGO_URI = process.env.MONGODB_URI;
+if (!MONGO_URI) {
+    console.error('❌ CRITICAL ERROR: MONGODB_URI is missing!');
+    console.log('👉 Action: Add MONGODB_URI to your Railway Environment Variables.');
+}
+
+mongoose.connect(MONGO_URI || '', { dbName: 'pulse_db' })
+    .then(() => console.log('✅ Connected to MongoDB Atlas (pulse_db)'))
+    .catch(err => {
+        console.error('❌ MongoDB connection error:', err.message);
+    });
+
+// Validate other critical keys
+const requiredKeys = ['GROQ_API_KEY', 'SMTP_USER', 'SMTP_PASS'];
+requiredKeys.forEach(key => {
+    if (!process.env[key]) {
+        console.warn(`⚠️  WARNING: ${key} is missing in Environment Variables.`);
+    }
+});
 
 // Handle global errors to prevent silent crashes
 process.on('uncaughtException', (err) => {

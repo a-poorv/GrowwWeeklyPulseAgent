@@ -1,9 +1,16 @@
 const Groq = require('groq-sdk');
 require('dotenv').config();
 
-const groq = new Groq({
-    apiKey: process.env.GROQ_API_KEY
-});
+let groq;
+const getGroqClient = () => {
+    if (!groq) {
+        if (!process.env.GROQ_API_KEY) {
+            throw new Error('GROQ_API_KEY is missing. Please add it to your environment variables.');
+        }
+        groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    }
+    return groq;
+};
 
 // Helper to chunk array
 function chunkArray(array, size) {
@@ -32,7 +39,8 @@ Return ONLY VALID JSON.
 }`;
 
     try {
-        const chatCompletion = await groq.chat.completions.create({
+        const client = getGroqClient();
+        const chatCompletion = await client.chat.completions.create({
             response_format: { type: 'json_object' },
             messages: [
                 { role: "system", content: systemPrompt },
@@ -78,7 +86,8 @@ Return ONLY VALID JSON.
 
     try {
         onProgress?.({ phase: 'reducing', status: 'started' });
-        const chatCompletion = await groq.chat.completions.create({
+        const client = getGroqClient();
+        const chatCompletion = await client.chat.completions.create({
             response_format: { type: 'json_object' },
             messages: [
                 { role: "system", content: systemPrompt },
