@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, MessageSquareQuote, Calendar, Mail, RefreshCw, Activity, Lightbulb, ArrowRight, Zap, Target, TrendingUpIcon, AlertCircle } from 'lucide-react';
+import { TrendingUp, MessageSquareQuote, Calendar, Mail, RefreshCw, Activity, Lightbulb, ArrowRight, Zap, Target, TrendingUpIcon, AlertCircle, FileText, Download, Eye, EyeOff } from 'lucide-react';
+import { toPng } from 'html-to-image';
+import jsPDF from 'jspdf';
 
 // Custom Tooltip component for the chart
 const CustomTooltip = ({ active, payload }) => {
@@ -265,8 +267,12 @@ const ComprehensiveDashboard = ({ data, selectedWeeks, onWeekSelect, recipientEm
           if (typeof a === 'object') return a;
           return { text: a, priority: baseHistorical.actions[i]?.priority || 'HIGH PRIORITY' };
         }),
+        urgentThemes: data.urgentThemes || baseHistorical.urgentThemes,
         generatedAt: data.generatedAt,
         totalReviews: data.totalReviews || baseHistorical.totalReviews,
+        sentimentScore: data.sentimentScore || baseHistorical.sentimentScore,
+        sentimentChange: data.sentimentChange || baseHistorical.sentimentChange,
+        reviewChange: data.reviewChange || baseHistorical.reviewChange,
         isLive: true
       };
     }
@@ -276,6 +282,27 @@ const ComprehensiveDashboard = ({ data, selectedWeeks, onWeekSelect, recipientEm
   };
 
   const currentWeekData = getDisplayData();
+  const dashboardRef = useRef(null);
+  const [downloading, setDownloading] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    if (!dashboardRef.current) return;
+    setDownloading(true);
+    try {
+      const dataUrl = await toPng(dashboardRef.current, { quality: 0.95, backgroundColor: '#0f172a' });
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Groww_Pulse_${selectedWeeks}W_${new Date().toLocaleDateString()}.pdf`);
+    } catch (err) {
+      console.error('PDF Export failed:', err);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   // Chart data
   const analyticsData = [
@@ -317,14 +344,36 @@ const ComprehensiveDashboard = ({ data, selectedWeeks, onWeekSelect, recipientEm
         <div className="controls-row">
           <div className="email-input-container">
             <Mail size={16} />
-            <input type="email" placeholder="Enter recipient email" value={recipientEmail} onChange={(e) => onEmailChange(e.target.value)} disabled={loading} className="email-input" />
+            <input 
+              type={showEmail ? "text" : "password"} 
+              placeholder="johndoe@example.com" 
+              value={recipientEmail} 
+              onChange={(e) => onEmailChange(e.target.value)} 
+              disabled={loading} 
+              className="email-input" 
+            />
+            {recipientEmail && (
+              <button 
+                type="button" 
+                className="email-visibility-toggle"
+                onClick={() => setShowEmail(!showEmail)}
+              >
+                {showEmail ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            )}
           </div>
           <button className={`generate-btn ${loading ? 'loading' : ''}`} onClick={onGenerate} disabled={loading}>
             <RefreshCw size={18} className={loading ? 'spin-icon' : ''} />
             {loading ? 'Generating...' : 'Generate Pulse'}
           </button>
+          <button className={`download-pdf-btn ${downloading ? 'loading' : ''}`} onClick={handleDownloadPDF} disabled={loading || downloading}>
+            {downloading ? <RefreshCw size={18} className="spin-icon" /> : <Download size={18} />}
+            {downloading ? 'Capturing...' : 'Download PDF'}
+          </button>
         </div>
       </div>
+
+      <div ref={dashboardRef} className="dashboard-capture-area">
 
       {/* Top Section */}
       <div className="dashboard-top-section">
@@ -487,6 +536,8 @@ const ComprehensiveDashboard = ({ data, selectedWeeks, onWeekSelect, recipientEm
           </div>
         </div>
       </div>
+      {/* End pulse capture area */}
+      </div> 
     </div>
   );
 };

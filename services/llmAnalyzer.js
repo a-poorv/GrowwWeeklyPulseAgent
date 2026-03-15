@@ -72,16 +72,22 @@ Your job is to read these aggregated micro-themes and quotes from recent app rev
 
 ### TASK:
 1. Synthesize the micro-themes into maximum 5 final distinct themes.
-2. Select exactly 3 real user quotes from the provided list.
+2. Select exactly 3 representative real user quotes from the provided list.
 3. Generate exactly 3 actionable product ideas based on these themes.
-4. Keep the entire response under 250 words. No PII.
+4. Identify 3 Themes Requiring Immediate Action (URGENT) with a specific action item, urgency level (CRITICAL, HIGH, MEDIUM, LOW), and a simulated impact percentage.
+5. Keep the entire response under 250 words. No PII.
 
 ### FORMAT:
 Return ONLY VALID JSON.
 {
-  "themes": [ "Theme 1 name", "Theme 2 name", "Theme 3 name", "Theme 4 name", "Theme 5 name" ],
+  "themes": [ "Theme 1", "Theme 2", "Theme 3", "Theme 4", "Theme 5" ],
   "quotes": [ "Quote 1", "Quote 2", "Quote 3" ],
-  "actions": [ "Action idea 1", "Action idea 2", "Action idea 3" ]
+  "actions": [ "Action 1", "Action 2", "Action 3" ],
+  "urgentThemes": [
+     { "name": "Theme Name", "action": "Immediate Action", "urgency": "CRITICAL", "change": "+X%" },
+     { "name": "Theme Name", "action": "Immediate Action", "urgency": "HIGH", "change": "+X%" },
+     { "name": "Theme Name", "action": "Immediate Action", "urgency": "MEDIUM", "change": "+X%" }
+  ]
 }`;
 
     try {

@@ -71,6 +71,7 @@ function App() {
             setCurrentJob(null);
             setJobStatus(null); // Clear pipeline after completion
             setShowSuccess(true);
+            setRecipientEmail(''); // Clear email on success
             setTimeout(() => setShowSuccess(false), 5000);
             // Refresh the pulse data
             await fetchPrecomputedData(selectedWeeks);
