@@ -2,6 +2,10 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 const dns = require('dns');
+// TRIPLE FORCE: Tell Node.js to prefer IPv4 globally to avoid Railway IPv6 bugs
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
 
 /**
  * Validates an email address format.
@@ -23,18 +27,12 @@ const transporter = nodemailer.createTransport({
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
     },
-    // FORCE IPv4 logic at the DNS level
-    lookup: (hostname, options, callback) => {
-        // This manually forces the DNS to resolve to IPv4 only
-        dns.lookup(hostname, { family: 4 }, (err, address, family) => {
-            if (err) console.error(`[DNS] Failed to resolve ${hostname}:`, err.message);
-            else console.log(`[DNS] Resolved ${hostname} to ${address} (Forcing IPv4)`);
-            callback(err, address, family);
-        });
-    },
-    connectionTimeout: 10000, 
-    greetingTimeout: 10000,
-    socketTimeout: 20000,
+    // TRIPLE FORCE: Force IPv4 at the socket and binding level
+    family: 4, 
+    localAddress: '0.0.0.0', // Force local bind to IPv4 only
+    connectionTimeout: 15000, 
+    greetingTimeout: 15000,
+    socketTimeout: 30000,
 });
 
 /**
