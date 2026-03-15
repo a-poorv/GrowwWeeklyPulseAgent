@@ -17,14 +17,14 @@ const validateEmail = (email) => {
  */
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // Use STARTTLS
-    requireTLS: true,
+    port: 465,
+    secure: true, // Use SSL/TLS
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
     },
     // Standard best practices for cloud deployments
+    family: 4, // Force IPv4 to avoid networking bugs
     connectionTimeout: 10000, 
     greetingTimeout: 10000,
     socketTimeout: 20000,
