@@ -1,60 +1,90 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
-const dns = require('dns');
 
 /**
- * Sends the generated pulse report via email
- * @param {Object} pulseData JSON object from LLM containing themes, quotes, actions
- * @param {string} targetEmail Recipient email address
- * @param {Function} onProgress Optional progress callback
+ * Validates an email address format.
+ * @param {string} email 
+ * @returns {boolean}
  */
+const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
+};
 
-// HARDENED GMAIL CONFIGURATION
-// We use a custom lookup function to force IPv4 and bypass Render's IPv6 networking bugs.
+/**
+ * Centralized SMTP Transporter Configuration for Gmail
+ */
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
     secure: false, // Use STARTTLS
-    pool: true,
-    maxConnections: 3,
+    requireTLS: true,
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
     },
-    // CRITICAL: Manual DNS Lookup Force for Cloud Environments (Render fix)
-    lookup: (hostname, options, callback) => {
-        dns.lookup(hostname, { family: 4 }, (err, address, family) => {
-            callback(err, address, family);
-        });
-    },
-    connectionTimeout: 10000,
+    // Standard best practices for cloud deployments
+    connectionTimeout: 10000, 
     greetingTimeout: 10000,
     socketTimeout: 20000,
-    tls: {
-        rejectUnauthorized: false,
-        minVersion: 'TLSv1.2'
-    }
 });
 
-// Verify connection on startup to log errors clearly in Render logs
-transporter.verify((error, success) => {
-    if (error) {
-        console.error('❌ SMTP Connection Error (Gmail):', error.message);
-    } else {
-        console.log('✅ SMTP Server ready (Gmail)');
+/**
+ * Reusable core email sending function with retry logic.
+ * @param {string} to Recipient email
+ * @param {string} subject Email subject
+ * @param {string} html Email content in HTML format
+ * @param {number} retries Number of retries (default 3)
+ */
+async function sendEmail(to, subject, html, retries = 3) {
+    if (!to || !validateEmail(to)) {
+        throw new Error(`Invalid recipient email address: ${to}`);
     }
-});
 
+    let lastError;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            console.log(`[SMTP] Attempt ${attempt} to send email to ${to}...`);
+            const info = await transporter.sendMail({
+                from: `"Weekly Pulse" <${process.env.SMTP_USER}>`,
+                to: to,
+                subject: subject,
+                html: html
+            });
+            console.log(`✅ Email sent successfully on attempt ${attempt}: ${info.messageId}`);
+            return info;
+        } catch (error) {
+            lastError = error;
+            console.error(`❌ SMTP Attempt ${attempt} failed: ${error.message}`);
+            if (attempt < retries) {
+                const delay = attempt * 1000; // Exponential backoff (sort of)
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+    throw lastError;
+}
+
+/**
+ * Formats pulse data and sends it using the core sendEmail function.
+ * Maintains compatibility with the existing application logic.
+ */
 async function sendPulseEmail(pulseData, targetEmail = null, onProgress) {
     const recipientEmail = targetEmail || process.env.TARGET_EMAIL;
     
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS || !recipientEmail) {
-        onProgress?.({ phase: 'email', status: 'skipped', reason: 'Missing configuration' });
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        onProgress?.({ phase: 'email', status: 'skipped', reason: 'Missing SMTP credentials' });
+        return;
+    }
+
+    if (!recipientEmail || !validateEmail(recipientEmail)) {
+        console.error(`❌ Skipping email: Invalid or missing recipient: ${recipientEmail}`);
+        onProgress?.({ phase: 'email', status: 'skipped', reason: 'Invalid recipient' });
         return;
     }
 
     try {
-        onProgress?.({ phase: 'email', status: 'sending', progress: 10 });
+        onProgress?.({ phase: 'email', status: 'sending', progress: 30 });
 
         const htmlTemplate = `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
@@ -86,25 +116,21 @@ async function sendPulseEmail(pulseData, targetEmail = null, onProgress) {
             </div>
         `;
 
-        const mailOptions = {
-            from: `"Weekly Pulse" <${process.env.SMTP_USER}>`,
-            to: recipientEmail,
-            subject: `📈 Groww Weekly Pulse (Week ${pulseData.weeks || 'Recent'}) - ${new Date().toDateString()}`,
-            html: htmlTemplate
-        };
-
-        const info = await transporter.sendMail(mailOptions);
-        console.log(`✅ Pulse email delivered to ${recipientEmail}`);
-        onProgress?.({ phase: 'email', status: 'completed', progress: 100, messageId: info.messageId });
-        return info;
+        const subject = `📈 Groww Weekly Pulse (Week ${pulseData.weeks || 'Recent'}) - ${new Date().toDateString()}`;
+        
+        const result = await sendEmail(recipientEmail, subject, htmlTemplate);
+        
+        onProgress?.({ phase: 'email', status: 'completed', progress: 100, messageId: result.messageId });
+        return result;
         
     } catch (error) {
-        console.error('❌ Email dispatch failed:', error.message);
+        console.error('❌ Pulse email failed after final attempt:', error.message);
         onProgress?.({ phase: 'email', status: 'error', error: error.message });
         throw error;
     }
 }
 
 module.exports = {
+    sendEmail,
     sendPulseEmail
 };
