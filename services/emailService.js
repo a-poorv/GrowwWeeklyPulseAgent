@@ -1,11 +1,10 @@
-// Email Service - Centralized SMTP (Gmail) - Last Updated: 2026-03-15
+// Email Service - Hardened SMTP (Gmail) - Last Updated: 2026-03-15
 require('dotenv').config();
 const nodemailer = require('nodemailer');
+const dns = require('dns');
 
 /**
  * Validates an email address format.
- * @param {string} email 
- * @returns {boolean}
  */
 const validateEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -13,7 +12,8 @@ const validateEmail = (email) => {
 };
 
 /**
- * Centralized SMTP Transporter Configuration for Gmail
+ * HARDENED SMTP CONFIGURATION
+ * This bypasses the broken IPv6 routing found on Render/Railway/Cloud providers.
  */
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
@@ -23,8 +23,15 @@ const transporter = nodemailer.createTransport({
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
     },
-    // Standard best practices for cloud deployments
-    family: 4, // Force IPv4 to avoid networking bugs
+    // FORCE IPv4 logic at the DNS level
+    lookup: (hostname, options, callback) => {
+        // This manually forces the DNS to resolve to IPv4 only
+        dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+            if (err) console.error(`[DNS] Failed to resolve ${hostname}:`, err.message);
+            else console.log(`[DNS] Resolved ${hostname} to ${address} (Forcing IPv4)`);
+            callback(err, address, family);
+        });
+    },
     connectionTimeout: 10000, 
     greetingTimeout: 10000,
     socketTimeout: 20000,
@@ -32,10 +39,6 @@ const transporter = nodemailer.createTransport({
 
 /**
  * Reusable core email sending function with retry logic.
- * @param {string} to Recipient email
- * @param {string} subject Email subject
- * @param {string} html Email content in HTML format
- * @param {number} retries Number of retries (default 3)
  */
 async function sendEmail(to, subject, html, retries = 3) {
     if (!to || !validateEmail(to)) {
@@ -57,8 +60,9 @@ async function sendEmail(to, subject, html, retries = 3) {
         } catch (error) {
             lastError = error;
             console.error(`❌ SMTP Attempt ${attempt} failed: ${error.message}`);
+            // If it's a network error, we definitely want to try again
             if (attempt < retries) {
-                const delay = attempt * 1000; // Exponential backoff (sort of)
+                const delay = attempt * 2000; 
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
@@ -68,7 +72,6 @@ async function sendEmail(to, subject, html, retries = 3) {
 
 /**
  * Formats pulse data and sends it using the core sendEmail function.
- * Maintains compatibility with the existing application logic.
  */
 async function sendPulseEmail(pulseData, targetEmail = null, onProgress) {
     const recipientEmail = targetEmail || process.env.TARGET_EMAIL;
