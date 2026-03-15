@@ -1,3 +1,4 @@
+// Email Service - Centralized SMTP (Gmail) - Last Updated: 2026-03-15
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 
