@@ -28,9 +28,9 @@ const transporter = nodemailer.createTransport({
         pass: process.env.SMTP_PASS
     },
     // TRIPLE FORCE: Force IPv4 at the socket and binding level
-    family: 4, 
+    family: 4,
     localAddress: '0.0.0.0', // Force local bind to IPv4 only
-    connectionTimeout: 15000, 
+    connectionTimeout: 15000,
     greetingTimeout: 15000,
     socketTimeout: 30000,
 });
@@ -60,7 +60,7 @@ async function sendEmail(to, subject, html, retries = 3) {
             console.error(`❌ SMTP Attempt ${attempt} failed: ${error.message}`);
             // If it's a network error, we definitely want to try again
             if (attempt < retries) {
-                const delay = attempt * 2000; 
+                const delay = attempt * 2000;
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
@@ -73,7 +73,7 @@ async function sendEmail(to, subject, html, retries = 3) {
  */
 async function sendPulseEmail(pulseData, targetEmail = null, onProgress) {
     const recipientEmail = targetEmail || process.env.TARGET_EMAIL;
-    
+
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
         onProgress?.({ phase: 'email', status: 'skipped', reason: 'Missing SMTP credentials' });
         return;
@@ -119,12 +119,12 @@ async function sendPulseEmail(pulseData, targetEmail = null, onProgress) {
         `;
 
         const subject = `📈 Groww Weekly Pulse (Week ${pulseData.weeks || 'Recent'}) - ${new Date().toDateString()}`;
-        
+
         const result = await sendEmail(recipientEmail, subject, htmlTemplate);
-        
+
         onProgress?.({ phase: 'email', status: 'completed', progress: 100, messageId: result.messageId });
         return result;
-        
+
     } catch (error) {
         console.error('❌ Pulse email failed after final attempt:', error.message);
         onProgress?.({ phase: 'email', status: 'error', error: error.message });
