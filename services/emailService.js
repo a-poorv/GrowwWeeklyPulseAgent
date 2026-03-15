@@ -85,92 +85,69 @@ async function sendPulseEmail(pulseData, targetEmail = null, onProgress) {
             <!DOCTYPE html>
             <html>
             <head>
+                <meta charset="utf-8">
                 <style>
-                    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f8fafc; }
-                    .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; }
-                    .header { background: #00d09c; padding: 30px; text-align: center; color: white; }
-                    .header h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
-                    .header p { margin: 5px 0 0; opacity: 0.9; font-size: 14px; }
+                    body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f5f5f5; }
+                    .container { max-width: 700px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; }
+                    .header { background: linear-gradient(135deg, #00d09c 0%, #1ac089 100%); color: white; padding: 40px 30px; text-align: center; }
+                    .header h1 { margin: 0; font-size: 32px; font-weight: bold; letter-spacing: 0.5px; }
+                    .header-subtitle { margin: 8px 0 0 0; font-size: 14px; opacity: 0.95; }
                     .content { padding: 30px; }
-                    .stats-grid { display: table; width: 100%; border-collapse: separate; border-spacing: 10px; margin-bottom: 25px; }
-                    .stat-box { display: table-cell; background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; width: 33.33%; }
-                    .stat-label { display: block; font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
-                    .stat-value { display: block; font-size: 20px; font-weight: 800; color: #0f172a; }
-                    .stat-change { font-size: 11px; font-weight: 600; color: #10b981; }
-                    .section-title { font-size: 13px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 25px 0 12px; display: flex; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-                    .urgent-theme { background: #fff1f2; border-left: 4px solid #f43f5e; padding: 12px 15px; margin-bottom: 10px; border-radius: 0 4px 4px 0; }
-                    .urgent-name { font-weight: 700; color: #9f1239; font-size: 14px; display: block; }
-                    .urgent-action { color: #be123c; font-size: 13px; display: block; margin-top: 2px; }
-                    .urgent-badge { float: right; background: #f43f5e; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-top: -18px; }
-                    .theme-item { background: #f8fafc; padding: 10px 15px; border-radius: 6px; margin-bottom: 8px; font-size: 14px; font-weight: 500; border: 1px solid #f1f5f9; }
-                    .quote-card { background: #ffffff; border-left: 4px solid #00d09c; padding: 15px; font-style: italic; color: #475569; margin-bottom: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border-top: 1px solid #f1f5f9; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
-                    .action-item { display: flex; margin-bottom: 12px; }
-                    .action-bullet { min-width: 24px; color: #00d09c; font-weight: 800; font-size: 18px; line-height: 1.2; }
-                    .action-text { font-size: 14px; color: #334115; }
-                    .footer { background: #f1f5f9; padding: 20px; text-align: center; font-size: 11px; color: #94a3b8; }
+                    .section-title { font-size: 14px; font-weight: bold; color: #333; margin: 25px 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #00d09c; }
+                    .theme-bullet { margin: 10px 0; padding-left: 20px; position: relative; font-size: 13px; color: #333; line-height: 1.5; }
+                    .theme-bullet:before { content: "▸"; position: absolute; left: 0; color: #00d09c; font-weight: bold; }
+                    .urgent-item { background: #fff9f9; border-left: 4px solid #ff4747; padding: 12px 15px; margin: 10px 0; border-radius: 0 4px 4px 0; }
+                    .urgent-name { font-weight: bold; color: #333; font-size: 13px; }
+                    .urgent-action { color: #666; font-size: 12px; margin-top: 4px; }
+                    .urgency-label { display: inline-block; background: #ff4747; color: white; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 3px; margin-left: 8px; }
+                    .quote-block { background: #f9f9f9; border-left: 4px solid #00d09c; padding: 12px 15px; margin: 10px 0; font-style: italic; color: #666; font-size: 13px; line-height: 1.6; }
+                    .action-block { background: #f9f9f9; border-left: 4px solid #1ac089; padding: 12px 15px; margin: 10px 0; font-size: 13px; color: #333; line-height: 1.6; }
+                    .empty-message { color: #999; font-style: italic; font-size: 12px; padding: 10px 0; }
+                    .footer { background: #f5f5f5; padding: 20px; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #e0e0e0; }
                 </style>
             </head>
             <body>
                 <div class="container">
                     <div class="header">
-                        <h1>Groww Weekly Pulse</h1>
-                        <p>Aggregated user feedback analysis for the past ${pulseData.weeks || 8} weeks</p>
+                        <h1>📊 Groww Weekly Pulse</h1>
+                        <div class="header-subtitle">Week ${pulseData.weeks || 8} Review Digest</div>
                     </div>
                     <div class="content">
-                        <!-- KPI Section -->
-                        <div class="stats-grid">
-                            <div class="stat-box">
-                                <span class="stat-label">Total Reviews</span>
-                                <span class="stat-value">${totalReviews}</span>
-                                <span class="stat-change">${reviewChange}</span>
-                            </div>
-                            <div class="stat-box">
-                                <span class="stat-label">Avg. Rating</span>
-                                <span class="stat-value">${sentimentScore}</span>
-                                <span class="stat-change" style="color:#00d09c;">+${sentimentChange}</span>
-                            </div>
-                            <div class="stat-box">
-                                <span class="stat-label">Status</span>
-                                <span class="stat-value" style="color:#00d09c; font-size: 16px;">Healthy</span>
-                                <span class="stat-change">Verified</span>
-                            </div>
-                        </div>
+                        <!-- Key Metrics -->
+                        <div class="section-title">📈 Top 3 User Themes</div>
+                        ${themes && themes.length > 0 ? themes.slice(0, 3).map(t => `
+                            <div class="theme-bullet">${typeof t === 'object' ? t.name || t : t}</div>
+                        `).join('') : '<div class="empty-message">No themes available</div>'}
 
-                        <!-- Immediate Action Section -->
-                        <div class="section-title">⚠️ THEMES REQUIRING IMMEDIATE ACTION</div>
-                        ${urgentThemes.map(t => `
-                            <div class="urgent-theme">
-                                <span class="urgent-badge">${t.urgency}</span>
-                                <span class="urgent-name">${t.name}</span>
-                                <span class="urgent-action">${t.action}</span>
+                        <!-- Urgent Themes -->
+                        ${urgentThemes && urgentThemes.length > 0 ? `
+                            <div class="section-title">⚠️ Themes Requiring Immediate Action</div>
+                            ${urgentThemes.map(t => `
+                                <div class="urgent-item">
+                                    <span class="urgent-name">${t.name}</span>
+                                    <span class="urgency-label">${t.urgency}</span>
+                                    <div class="urgent-action" style="margin-top: 6px;">→ ${t.action}</div>
+                                </div>
+                            `).join('')}
+                        ` : ''}
+
+                        <!-- Raw User Voice -->
+                        <div class="section-title">💬 Raw User Voice</div>
+                        ${quotes && quotes.length > 0 ? quotes.map(q => `
+                            <div class="quote-block">"${q}"</div>
+                        `).join('') : '<div class="empty-message">No user feedback available</div>'}
+
+                        <!-- Proposed Actions -->
+                        <div class="section-title">🚀 Proposed Action Items</div>
+                        ${actions && actions.length > 0 ? actions.map((a, idx) => `
+                            <div class="action-block">
+                                <strong>${idx + 1}. ${typeof a === 'object' ? a.text : a}</strong>
                             </div>
-                        `).join('')}
-
-                        <!-- Emerging Themes Section -->
-                        <div class="section-title">⚡ TOP EMERGING THEMES</div>
-                        ${themes.map(t => `
-                            <div class="theme-item">${typeof t === 'object' ? t.name : t}</div>
-                        `).join('')}
-
-                        <!-- User Voices Section -->
-                        <div class="section-title">🗣️ RAW USER VOICE</div>
-                        ${quotes.map(q => `
-                            <div class="quote-card">"${q}"</div>
-                        `).join('')}
-
-                        <!-- Strategic Actions Section -->
-                        <div class="section-title">🚀 STRATEGIC ACTIONS</div>
-                        ${actions.map(a => `
-                            <div class="action-item">
-                                <div class="action-bullet">→</div>
-                                <div class="action-text">${typeof a === 'object' ? a.text : a}</div>
-                            </div>
-                        `).join('')}
+                        `).join('') : '<div class="empty-message">No actions recommended</div>'}
                     </div>
                     <div class="footer">
                         <p>Generated on ${new Date(pulseData.generatedAt).toLocaleString()}</p>
-                        <p>This report was generated using AI analysis of real app reviews.</p>
-                        <p>Sent via Brevo HTTP Web Path.</p>
+                        <p>Weekly Pulse Report via Groww Agent</p>
                     </div>
                 </div>
             </body>

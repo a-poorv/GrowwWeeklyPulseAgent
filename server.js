@@ -55,6 +55,10 @@ setInterval(() => jobTracker.cleanupOldJobs(), 60 * 60 * 1000);
 app.use(cors());
 app.use(express.json());
 
+// Serve static files from dashboard dist
+const dashboardPath = path.join(__dirname, 'dashboard', 'dist');
+app.use(express.static(dashboardPath));
+
 // Background Cron Job (Runs every 24 hours at 2:00 AM)
 // This strictly pre-loads the data.
 cron.schedule('0 2 * * *', () => runPulseGeneration(null, 8));
@@ -309,6 +313,11 @@ app.get('/api/pulse', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+});
+
+// Fallback route for SPA - serve index.html for all non-API routes
+app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.join(dashboardPath, 'index.html'));
 });
 
 app.listen(PORT, '0.0.0.0', () => {
